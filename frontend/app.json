@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Fact Check",
+    "slug": "fact-check",
     "sdkVersion": "54.0.0",
     "version": "1.0.0",
     "orientation": "portrait",

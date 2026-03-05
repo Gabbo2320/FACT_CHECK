@@ -4,6 +4,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from dotenv import load_dotenv
+
 
 app = Flask(__name__)
 CORS(app)  # Fondamentale per far parlare Frontend e Backend
@@ -14,9 +16,14 @@ cred = credentials.Certificate("firebase-key.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+# Carica le variabili dal file .env
+load_dotenv()
+# Recupera la chiave
+api_key = os.getenv("GEMINI_API_KEY")
+
 # --- CONFIGURAZIONE GEMINI ---
 # Sostituisci 'LA_TUA_CHIAVE' con la tua API Key di Google AI Studio
-genai.configure(api_key= "AIzaSyCd6uYK6Ca-h7hvApe6d2Jqhp0fzhj4hM8")
+genai.configure()
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 
@@ -31,19 +38,15 @@ def check_news():
         response = model.generate_content(prompt)
         verdetto = response.text
 
-        # 2. Salviamo su Firebase
-        doc_ref = db.collection('analisi').add({
-            'testo_originale': user_news,
-            'risposta_ai': verdetto,
-            'timestamp': firestore.SERVER_TIMESTAMP
-        })
-
         return jsonify({"status": "success", "analisi": verdetto})
 
     except Exception as e:
         print(f"Errore: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/hello-world', methods=['GET'])
+def hello_world():
+    return model.generate_content("Hello World")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

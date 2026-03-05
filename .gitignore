@@ -2,3 +2,5 @@ backend/.venv
 firebase-key.json
 .idea
 backend/*.json
+backend/.env
+backend/firebase-key.json
