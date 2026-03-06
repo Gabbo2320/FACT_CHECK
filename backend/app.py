@@ -36,38 +36,51 @@ def check_news():
         if not user_news:
             return jsonify({"status": "error", "message": "Nessun dato fornito"}), 400
 
-        # --- DATA AUTOMATICA ---
-        # Legge l'ora del tuo PC: oggi è il 06/03/2026
         oggi = datetime.now().strftime("%d/%m/%Y")
 
-        # Prompt con il contesto temporale per non far sbagliare il modello
+        # Nuovo prompt: gli ordiniamo di usare il simbolo '|' per dividere le due cose
         prompt = (
-            f"Oggi è il {oggi}. Analizza se questa notizia è vera o falsa e spiega perché in breve. "
-            f"Se l'URL contiene la data di oggi, considerala attuale: {user_news}"
+            f"REGOLE TASSATIVE DI CONTESTO: Il tuo orologio segna il {oggi}. Usa questa data solo internamente. "
+            f"Non menzionare MAI il 2024 o 2025. "
+            f"Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore: "
+            f"VERO | La tua spiegazione breve qui... "
+            f"oppure "
+            f"FALSO | La tua spiegazione breve qui... "
+            f"Non usare mai il grassetto (niente asterischi) per la parola VERO o FALSO. "
+            f"Notizia da analizzare: {user_news}"
         )
 
-        # Chiamata con il TUO modello gemini-3-flash-preview
         response = client.models.generate_content(
             model=model_id,
             contents=prompt
         )
 
-        verdetto = response.text
+        testo_grezzo = response.text
 
-        # --- SALVATAGGIO FIREBASE ---
+        # TRUCCO: Dividiamo la risposta dove trova il simbolo '|'
+        if "|" in testo_grezzo:
+            parti = testo_grezzo.split("|", 1)
+            verdetto = parti[0].strip().upper() # Prende "VERO" o "FALSO" e lo mette in maiuscolo
+            spiegazione = parti[1].strip()      # Prende il resto del testo
+        else:
+            verdetto = "INCERTO"
+            spiegazione = testo_grezzo
+
+        # Salvataggio Firebase (opzionale se lo stavi usando)
         try:
             db.collection('analisi_effettuate').add({
                 'testo': user_news,
-                'analisi': verdetto,
+                'analisi': f"{verdetto} - {spiegazione}",
                 'data': datetime.now()
             })
         except Exception as fe:
             print(f"Errore Database: {fe}")
 
+        # Ora mandiamo all'app DUE dati separati, non più uno solo!
         return jsonify({
             "status": "success",
-            "analisi": verdetto,
-            "analysis": verdetto
+            "verdetto": verdetto,
+            "spiegazione": spiegazione
         })
 
     except Exception as e:
