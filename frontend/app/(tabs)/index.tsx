@@ -57,11 +57,14 @@ export default function TabOneScreen() {
       </TouchableOpacity>
 
       {analisi ? (
-        <ScrollView style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Risultato:</Text>
-          <Text style={styles.resultText}>{analisi}</Text>
-        </ScrollView>
-      ) : null}
+  <ScrollView
+    style={styles.resultContainer}
+    contentContainerStyle={{ paddingBottom: 50 }} // <--- Aggiungi questo!
+  >
+    <Text style={styles.resultTitle}>Risultato:</Text>
+    <Text style={styles.resultText}>{analisi}</Text>
+  </ScrollView>
+) : null}
     </View>
   );
 }
@@ -104,6 +107,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   resultContainer: {
+    flex: 1, // <--- ECCO QUELLO CHE MANCAVA! Sbloccherà lo scroll.
     marginTop: 30,
     padding: 15,
     borderRadius: 10,
