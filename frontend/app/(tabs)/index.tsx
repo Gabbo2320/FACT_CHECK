@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { Text, View } from '@/components/Themed';
 
 export default function TabOneScreen() {
@@ -57,10 +57,10 @@ export default function TabOneScreen() {
       </TouchableOpacity>
 
       {analisi ? (
-        <View style={styles.resultContainer}>
+        <ScrollView style={styles.resultContainer}>
           <Text style={styles.resultTitle}>Risultato:</Text>
           <Text style={styles.resultText}>{analisi}</Text>
-        </View>
+        </ScrollView>
       ) : null}
     </View>
   );
