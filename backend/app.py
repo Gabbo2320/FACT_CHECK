@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from google import genai
 import firebase_admin
@@ -9,40 +10,70 @@ from dotenv import load_dotenv
 app = Flask(__name__)
 CORS(app)
 
-# Carica le variabili dal file .env
+# --- CONFIGURAZIONI ---
 load_dotenv()
-# Recupera la chiave
 api_key = os.getenv("GEMINI_API_KEY")
 
-# The client gets the API key from the environment variable `GEMINI_API_KEY`.
+# Manteniamo il TUO modello specifico
 client = genai.Client(api_key=api_key)
-model="gemini-3-flash-preview"
+model_id = "gemini-3-flash-preview"
+
+# --- CONFIGURAZIONE FIREBASE ---
+try:
+    cred = credentials.Certificate("firebase-key.json")
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+except Exception as e:
+    print(f"Errore Firebase: {e}")
 
 @app.route('/check-news', methods=['POST'])
 def check_news():
     try:
         data = request.json
-        user_news = data.get('news') or data.get('url')  # Accetta entrambi i nomi
+        user_news = data.get('news') or data.get('url')
 
         if not user_news:
             return jsonify({"status": "error", "message": "Nessun dato fornito"}), 400
 
-        prompt = f"Analizza se questa notizia è vera o falsa e spiega perché in breve: {user_news}"
-        response = client.models.generate_content(
-            model=model, contents=prompt
+        # --- DATA AUTOMATICA ---
+        # Legge l'ora del tuo PC: oggi è il 06/03/2026
+        oggi = datetime.now().strftime("%d/%m/%Y")
+
+        # Prompt con il contesto temporale per non far sbagliare il modello
+        prompt = (
+            f"Oggi è il {oggi}. Analizza se questa notizia è vera o falsa e spiega perché in breve. "
+            f"Se l'URL contiene la data di oggi, considerala attuale: {user_news}"
         )
+
+        # Chiamata con il TUO modello gemini-3-flash-preview
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt
+        )
+
+        verdetto = response.text
+
+        # --- SALVATAGGIO FIREBASE ---
+        try:
+            db.collection('analisi_effettuate').add({
+                'testo': user_news,
+                'analisi': verdetto,
+                'data': datetime.now()
+            })
+        except Exception as fe:
+            print(f"Errore Database: {fe}")
 
         return jsonify({
             "status": "success",
-            "analisi": response.text,
-            "analysis": response.text  # Per compatibilità col vecchio frontend
+            "analisi": verdetto,
+            "analysis": verdetto
         })
 
     except Exception as e:
-        print(f"Errore durante l'analisi: {e}")
+        print(f"Errore: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 if __name__ == '__main__':
-    # Rimaniamo sulla porta 5000 come nel tuo progetto attuale
+    # host='0.0.0.0' per la connessione del Pixel
     app.run(debug=True, host='0.0.0.0', port=5000)
