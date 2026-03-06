@@ -48,6 +48,7 @@ export default function TabOneScreen() {
         onPress={inviaAlBackend}
         disabled={caricamento}
       >
+
         {caricamento ? (
           <ActivityIndicator color="#fff" />
         ) : (
