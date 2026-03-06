@@ -14,7 +14,7 @@ export default function TabOneScreen() {
 
     try {
       // NOTA: Se usi un telefono fisico, sostituisci 127.0.0.1 con l'IP del tuo PC (es. 192.168.1.15)
-      const response = await fetch('http://10.176.37.91:5000/check-news', {
+      const response = await fetch('http://192.168.1.109:5000/check-news', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ news: notizia }),
