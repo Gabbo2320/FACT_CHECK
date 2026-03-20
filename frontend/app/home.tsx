@@ -1,13 +1,27 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { Text, View } from '@/components/Themed';
-import LoginScreen from '../../components/LoginScreen';
+import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, View, Text } from 'react-native';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'expo-router'; // 👈 AGGIUNTO QUESTO
 
-export default function TabOneScreen() {
+// ⚠️ Assicurati che il percorso di Firebase sia corretto!
+import { auth } from '../firebaseConfig';
+
+export default function HomeScreen() {
+  const router = useRouter(); // 👈 AGGIUNTO QUESTO
   const [notizia, setNotizia] = useState('');
-  const [verdetto, setVerdetto] = useState(''); // Stato per VERO/FALSO
-  const [spiegazione, setSpiegazione] = useState(''); // Stato per la descrizione
+  const [verdetto, setVerdetto] = useState('');
+  const [spiegazione, setSpiegazione] = useState('');
   const [caricamento, setCaricamento] = useState(false);
+
+  // Funzione per il Logout AGGIORNATA 👈
+  const handleLogout = () => {
+    signOut(auth).then(() => {
+      // Quando esci con successo, ti rimanda al Login!
+      router.replace('/login');
+    }).catch((error) => {
+      alert("Errore durante il logout: " + error.message);
+    });
+  };
 
   const inviaAlBackend = async () => {
     if (!notizia) return;
@@ -16,7 +30,8 @@ export default function TabOneScreen() {
     setSpiegazione('');
 
     try {
-      const response = await fetch('http://192.168.1.109:5000/check-news', {
+      // ⚠️ Assicurati che il tuo server Flask sia acceso su questo IP!
+      const response = await fetch('http://10.176.37.91:5000/check-news', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ news: notizia }),
@@ -27,7 +42,7 @@ export default function TabOneScreen() {
       setSpiegazione(data.spiegazione); // Gemini ci passa la spiegazione
 
     } catch (error) {
-      setSpiegazione("Errore: il backend non risponde. Controlla che Flask sia attivo!");
+      setSpiegazione("Errore: il backend non risponde. Controlla che Flask sia attivo e connesso alla stessa rete WiFi!");
       console.error(error);
     } finally {
       setCaricamento(false);
@@ -43,7 +58,14 @@ export default function TabOneScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Analizzatore Fake News</Text>
+
+      {/* HEADER: Titolo e tasto Esci */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Analizzatore Fake News</Text>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Esci</Text>
+        </TouchableOpacity>
+      </View>
 
       <TextInput
         style={styles.input}
@@ -92,12 +114,31 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 50,
+    backgroundColor: '#ffffff', // Aggiunto sfondo bianco per pulizia
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#333',
+  },
+  logoutBtn: {
+    backgroundColor: '#f44336', // Rosso per il logout
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   input: {
     width: '100%',
@@ -113,7 +154,7 @@ const styles = StyleSheet.create({
     color: '#000'
   },
   button: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#2b2d31', // Abbinato al colore del bottone di Login
     padding: 15,
     borderRadius: 10,
     width: '100%',
@@ -129,20 +170,20 @@ const styles = StyleSheet.create({
     marginTop: 30,
     padding: 15,
     borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: '#f4f6f8',
     width: '100%',
   },
-  // STILE PER IL NUOVO VERDETTO GIGANTE
   verdettoTitle: {
-    fontSize: 32,            // Più grande
-    fontWeight: '900',       // Molto marcato
-    textAlign: 'center',     // Centrato
-    marginBottom: 20,        // Staccato dalla spiegazione
-    textTransform: 'uppercase', // Tutto maiuscolo
-    letterSpacing: 2,        // Spazio tra le lettere
+    fontSize: 32,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 20,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
   },
   resultText: {
     fontSize: 16,
     lineHeight: 22,
+    color: '#333',
   },
 });

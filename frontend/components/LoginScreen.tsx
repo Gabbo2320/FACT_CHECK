@@ -3,6 +3,7 @@ import { View, Button, Text, StyleSheet } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { useRouter } from 'expo-router';
 
 // ⚠️ ATTENZIONE: Modifica questo percorso in base a dove si trova il tuo file di configurazione di Firebase!
 // Ad esempio, se lo hai nella cartella principale del frontend, potrebbe essere '../firebaseConfig'
@@ -12,9 +13,11 @@ import { auth } from '../firebaseConfig';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
+    const router = useRouter();
   // Configura la richiesta a Google
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: '714083621460-ghbt6ijj5p1tf321e30pkmdq51vknc6h.apps.googleusercontent.com',
+    prompt: 'select_account'
   });
 
   // Questo useEffect "ascolta" quando Google ci risponde
