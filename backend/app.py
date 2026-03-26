@@ -40,13 +40,14 @@ def check_news():
 
         # Nuovo prompt: gli ordiniamo di usare il simbolo '|' per dividere le due cose
         prompt = (
-            f"REGOLE TASSATIVE DI CONTESTO: Il tuo orologio segna il {oggi}. Usa questa data solo internamente. "
-            f"Non menzionare MAI il 2024 o 2025. "
-            f"Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore: "
-            f"VERO | La tua spiegazione breve qui... "
-            f"oppure "
-            f"FALSO | La tua spiegazione breve qui... "
-            f"Non usare mai il grassetto (niente asterischi) per la parola VERO o FALSO. "
+            f"REGOLE TASSATIVE DI CONTESTO: Il tuo orologio segna il {oggi}. Usa questa data solo per verificare temporalmente la notizia, ma tienila per te.\n"
+            f"Non menzionare MAI il 2024 o 2025.\n"
+            f"DIVIETO ASSOLUTO: Non scrivere e non menzionare MAI la data odierna o il giorno nella tua spiegazione finale.\n"
+            f"Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore: \n"
+            f"VERO | La tua spiegazione breve qui... \n"
+            f"oppure \n"
+            f"FALSO | La tua spiegazione breve qui... \n"
+            f"Non usare mai il grassetto (niente asterischi) per la parola VERO o FALSO. \n"
             f"Notizia da analizzare: {user_news}"
         )
 
