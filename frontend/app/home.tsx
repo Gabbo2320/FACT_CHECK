@@ -16,27 +16,23 @@ export default function HomeScreen() {
   // 👇 CONTROLLO SICUREZZA (Route Protection) 👇
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // Se Firebase ci dice che non c'è nessun utente, rimanda al login!
       if (!user) {
         router.replace('/login');
       }
     });
-
-    // Pulizia quando il componente viene chiuso
     return () => unsubscribe();
   }, []);
   // 👆 FINE CONTROLLO SICUREZZA 👆
 
   const handleLogout = () => {
     signOut(auth).then(() => {
-      // Nota: potremmo omettere router.replace qui, perché l'useEffect sopra
-      // scatterà in automatico appena signOut ha successo! Ma lasciarlo non fa danni.
       router.replace('/login');
     }).catch((error) => {
       alert("Errore durante il logout: " + error.message);
     });
   };
 
+  // 👇 LA NUOVA FUNZIONE CON IL TOKEN 👇
   const inviaAlBackend = async () => {
     if (!notizia) return;
     setCaricamento(true);
@@ -44,9 +40,19 @@ export default function HomeScreen() {
     setSpiegazione('');
 
     try {
+      // 1. Recupero il token dell'utente loggato
+      const token = await auth.currentUser?.getIdToken();
+
+      // 2. Prepara gli Header in modo ordinato (il "Braccialetto VIP")
+      const requestHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
+      // 3. Eseguo la chiamata passando gli Header puliti
       const response = await fetch('http://10.176.37.91:5000/check-news', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: requestHeaders,
         body: JSON.stringify({ news: notizia }),
       });
 
@@ -61,11 +67,12 @@ export default function HomeScreen() {
       setCaricamento(false);
     }
   };
+  // 👆 FINE NUOVA FUNZIONE 👆
 
   // Colore forte per il testo e il bordo
   const getColoreVerdetto = () => {
     if (verdetto.includes('VERO')) return '#4CAF50';
-    if (verdetto.includes('FALSO')) return '#d32f2f'; // Un rosso un po' più scuro e leggibile
+    if (verdetto.includes('FALSO')) return '#d32f2f';
     return '#FF9800';
   };
 
@@ -108,7 +115,7 @@ export default function HomeScreen() {
         )}
       </TouchableOpacity>
 
-      {/* --- SEZIONE RISULTATO (STILE ALERT BOX) --- */}
+      {/* --- SEZIONE RISULTATO --- */}
       {spiegazione ? (
         <ScrollView
           style={styles.resultContainer}
@@ -154,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 50,
-    backgroundColor: '#ffffff', // Torniamo al bianco pulito
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
@@ -186,7 +193,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderColor: '#e1e5e8',
     borderWidth: 1,
-    borderRadius: 10, // Un po' più squadrato per abbinarsi all'alert
+    borderRadius: 10,
     padding: 15,
     textAlignVertical: 'top',
     fontSize: 16,
@@ -206,8 +213,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
   },
-
-  // 👇 STILI ALERT BOX 👇
   resultContainer: {
     flex: 1,
     marginTop: 25,
@@ -217,7 +222,7 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 20,
     borderRadius: 8,
-    borderLeftWidth: 8, // Bordo spesso a sinistra
+    borderLeftWidth: 8,
     marginBottom: 10,
   },
   alertHeader: {
@@ -238,7 +243,7 @@ const styles = StyleSheet.create({
   alertText: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#222', // Testo ben scuro per contrastare lo sfondo chiaro
+    color: '#222',
   },
   alertFooter: {
     marginTop: 15,
@@ -247,6 +252,6 @@ const styles = StyleSheet.create({
     color: '#777',
     fontStyle: 'italic',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)', // Linea divisoria leggerissima
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
 });

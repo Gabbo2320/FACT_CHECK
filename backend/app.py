@@ -2,7 +2,8 @@ from datetime import datetime
 import os
 from google import genai
 import firebase_admin
-from firebase_admin import credentials, firestore
+# 👇 NOVITÀ: Ho aggiunto 'auth' agli import di Firebase
+from firebase_admin import credentials, firestore, auth
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -29,6 +30,27 @@ except Exception as e:
 
 @app.route('/check-news', methods=['POST'])
 def check_news():
+    # ==========================================
+    # 🛑 INIZIO BUTTAFUORI (CONTROLLO JWT)
+    # ==========================================
+    auth_header = request.headers.get('Authorization')
+
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"status": "error", "message": "Accesso negato: Token mancante"}), 401
+
+    token = auth_header.split(' ')[1]
+
+    try:
+        # Verifica la firma del token comunicando con Google/Firebase
+        decoded_token = auth.verify_id_token(token)
+        print(f"✅ Utente autorizzato con UID: {decoded_token['uid']}")
+    except Exception as e:
+        print(f"❌ Tentativo respinto: {e}")
+        return jsonify({"status": "error", "message": "Accesso negato: Token non valido o scaduto"}), 403
+    # ==========================================
+    # ✅ FINE BUTTAFUORI
+    # ==========================================
+
     try:
         data = request.json
         user_news = data.get('news') or data.get('url')
@@ -70,12 +92,13 @@ def check_news():
             verdetto = "INCERTO"
             spiegazione = testo_grezzo
 
-        # Salvataggio Firebase (opzionale se lo stavi usando)
+        # Salvataggio Firebase
         try:
             db.collection('analisi_effettuate').add({
                 'testo': user_news,
                 'analisi': f"{verdetto} - {spiegazione}",
-                'data': datetime.now()
+                'data': datetime.now(),
+                'utente_uid': decoded_token['uid'] # 👇 NOVITÀ: Salviamo anche chi ha fatto la ricerca!
             })
         except Exception as fe:
             print(f"Errore Database: {fe}")
