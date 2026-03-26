@@ -40,9 +40,13 @@ def check_news():
 
         # Nuovo prompt: gli ordiniamo di usare il simbolo '|' per dividere le due cose
         prompt = (
-            f"REGOLE TASSATIVE DI CONTESTO: Il tuo orologio segna il {oggi}. Usa questa data solo per verificare temporalmente la notizia, ma tienila per te.\n"
-            f"Non menzionare MAI il 2024 o 2025.\n"
+            f"REGOLE TASSATIVE DI CONTESTO: Il tuo orologio segna il {oggi}. Usa questa data solo internamente.\n"
             f"DIVIETO ASSOLUTO: Non scrivere e non menzionare MAI la data odierna o il giorno nella tua spiegazione finale.\n"
+
+            # --- NUOVA REGOLA DI FLESSIBILITA' ---
+            f"TOLLERANZA E INTENTO: Valuta il significato centrale del fatto storico. Se l'utente fa piccoli errori su anni di edizioni (es. AFCON 2026 invece di 2025), nomi o dettagli secondari, ma l'evento principale è realmente accaduto, devi rispondere VERO. Usa la tua spiegazione per correggere amichevolmente l'imprecisione dell'utente.\n"
+            # -------------------------------------
+
             f"Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore: \n"
             f"VERO | La tua spiegazione breve qui... \n"
             f"oppure \n"
@@ -50,7 +54,6 @@ def check_news():
             f"Non usare mai il grassetto (niente asterischi) per la parola VERO o FALSO. \n"
             f"Notizia da analizzare: {user_news}"
         )
-
         response = client.models.generate_content(
             model=model_id,
             contents=prompt
