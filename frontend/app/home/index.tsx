@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, View, Text } from 'react-native';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth'; // Rimosso signOut perché ora si fa nel CustomDrawer
 import { useRouter } from 'expo-router';
 
 // ⚠️ Assicurati che il percorso di Firebase sia corretto!
-import { auth } from '../firebaseConfig';
+import { auth } from '../../firebaseConfig';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -17,20 +17,13 @@ export default function HomeScreen() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        router.replace('/login');
+        // CORRETTO: Ora ti rimanda alla radice (il nuovo login)
+        router.replace('/');
       }
     });
     return () => unsubscribe();
   }, []);
   // 👆 FINE CONTROLLO SICUREZZA 👆
-
-  const handleLogout = () => {
-    signOut(auth).then(() => {
-      router.replace('/login');
-    }).catch((error) => {
-      alert("Errore durante il logout: " + error.message);
-    });
-  };
 
   // 👇 LA NUOVA FUNZIONE CON IL TOKEN 👇
   const inviaAlBackend = async () => {
@@ -50,7 +43,7 @@ export default function HomeScreen() {
       };
 
       // 3. Eseguo la chiamata passando gli Header puliti
-      const response = await fetch('http://10.176.37.91:5000/check-news', {
+      const response = await fetch('http://192.168.1.109:5000/check-news', {
         method: 'POST',
         headers: requestHeaders,
         body: JSON.stringify({ news: notizia }),
@@ -85,14 +78,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-
-      {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.title}>FactCheck AI</Text>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Esci</Text>
-        </TouchableOpacity>
-      </View>
 
       <TextInput
         style={styles.input}
@@ -160,33 +145,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: 20, // Abbassato da 50 a 20 perché ora c'è la barra del menù sopra
     backgroundColor: '#ffffff',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#1a1a1a',
-  },
-  logoutBtn: {
-    backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e1e5e8',
-  },
-  logoutText: {
-    color: '#666',
-    fontWeight: 'bold',
-    fontSize: 14,
   },
   input: {
     width: '100%',
