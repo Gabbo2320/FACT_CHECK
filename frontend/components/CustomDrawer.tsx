@@ -1,47 +1,61 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { signOut } from 'firebase/auth';
+import { useRouter } from 'expo-router';
 
-// ⚠️ Assicurati che il percorso di Firebase sia corretto!
+// ⚠️ Assicurati che il percorso di Firebase sia corretto
 import { auth } from '../firebaseConfig';
 
 export default function CustomDrawer(props: any) {
   const router = useRouter();
-
-  // Recuperiamo l'utente loggato da Firebase
   const user = auth.currentUser;
 
+  const displayName = user?.displayName || user?.email || 'Utente Sconosciuto';
+
+  const getInitials = (name: string) => {
+    if (name.includes('@')) return name.substring(0, 2).toUpperCase();
+    const words = name.split(' ');
+    if (words.length > 1) return (words[0][0] + words[1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
+
   const handleLogout = () => {
-    signOut(auth)
-      .then(() => {
-        // Al logout, riportiamo l'utente alla schermata di login (presumo sia la root '/')
-        router.replace('/');
-      })
-      .catch((error) => {
-        alert("Errore durante il logout: " + error.message);
-      });
+    signOut(auth).then(() => {
+      router.replace('/');
+    }).catch((error) => console.error("Errore logout:", error));
   };
 
   return (
-    <View style={styles.container}>
-      {/* PARTE ALTA: Le voci del menù (Home, Impostazioni, ecc.) */}
-      <DrawerContentScrollView {...props}>
-        <DrawerItemList {...props} />
-      </DrawerContentScrollView>
+    <DrawerContentScrollView {...props} contentContainerStyle={styles.container}>
 
-      {/* PARTE BASSA: Il Footer con Account e Logout */}
+      {/* 🔝 INTESTAZIONE */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>FactCheck AI</Text>
+        <Text style={styles.headerSubtitle}>Il tuo assistente antibufale</Text>
+      </View>
+
+      {/* 🚀 SPAZIO VUOTO (Spinge il profilo tutto in basso) */}
+      <View style={styles.spacer} />
+
+      {/* 👤 PARTE IN BASSO: Profilo Utente e Tasto Disconnettiti */}
       <View style={styles.footer}>
-        <Text style={styles.emailText}>
-          {user?.email ? user.email : "Utente non identificato"}
-        </Text>
+        <View style={styles.profileSection}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
+          </View>
+        </View>
 
+        {/* Nuovo Bottone Disconnettiti - Stile Professionale */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Esci dall'account</Text>
+          <Text style={styles.logoutText}>Disconnettiti</Text>
         </TouchableOpacity>
       </View>
-    </View>
+
+    </DrawerContentScrollView>
   );
 }
 
@@ -49,28 +63,70 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    padding: 20,
+    marginTop: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1a1a1a',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
+  },
+  spacer: {
+    flex: 1, // Rimesso lo spacer per spingere tutto in basso
+  },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e1e5e8',
+    borderTopColor: '#f0f0f0',
     backgroundColor: '#fafafa',
   },
-  emailText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    fontWeight: '500',
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  textContainer: {
+    marginLeft: 15,
+    flex: 1,
+    justifyContent: 'center', // Centra verticalmente il nome ora che manca il sottotitolo
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
   logoutButton: {
-    backgroundColor: '#DB4437', // Rosso stile Google/Logout
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    backgroundColor: '#d32f2f', // Rosso forte aziendale
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
   logoutText: {
-    color: '#fff',
+    color: '#ffffff', // Testo bianco per contrastare col rosso
     fontWeight: 'bold',
     fontSize: 15,
-  }
+    letterSpacing: 0.5,
+  },
 });
