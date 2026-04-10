@@ -43,7 +43,7 @@ export default function HomeScreen() {
       };
 
       // 3. Eseguo la chiamata passando gli Header puliti
-      const response = await fetch('http://192.168.1.109:5000/check-news', {
+      const response = await fetch('https://kratos.vps.webdock.cloud/check-news', {
         method: 'POST',
         headers: requestHeaders,
         body: JSON.stringify({ news: notizia }),
