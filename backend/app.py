@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 from google import genai
+from google.genai import types
 import firebase_admin
 # 👇 NOVITÀ: Ho aggiunto 'auth' agli import di Firebase
 from firebase_admin import credentials, firestore, auth
@@ -60,25 +61,31 @@ def check_news():
 
         oggi = datetime.now().strftime("%d/%m/%Y")
 
-        # Nuovo prompt: gli ordiniamo di usare il simbolo '|' per dividere le due cose
+        # Nuovo prompt con regole ANTI-ALLUCINAZIONE e Fact-Checking severo
         prompt = (
-            f"REGOLE TASSATIVE DI CONTESTO: Il tuo orologio segna il {oggi}. Usa questa data solo internamente.\n"
-            f"DIVIETO ASSOLUTO: Non scrivere e non menzionare MAI la data odierna o il giorno nella tua spiegazione finale.\n"
+            f"RUOLO: Sei un giornalista di fact-checking severissimo e incorruttibile. La tua priorità assoluta è la verità. NON inventare MAI i fatti per accontentare l'utente.\n"
+            f"CONTESTO TEMPORALE: Oggi è il {oggi}. Tieni a mente questa data, ma NON scriverla MAI nella spiegazione finale.\n"
 
-            # --- NUOVA REGOLA DI FLESSIBILITA' ---
-            f"TOLLERANZA E INTENTO: Valuta il significato centrale del fatto storico. Se l'utente fa piccoli errori su anni di edizioni (es. AFCON 2026 invece di 2025), nomi o dettagli secondari, ma l'evento principale è realmente accaduto, devi rispondere VERO. Usa la tua spiegazione per correggere amichevolmente l'imprecisione dell'utente.\n"
-            # -------------------------------------
+            f"REGOLA EVENTI FUTURI/IN CORSO (ANTI-ALLUCINAZIONE): Se l'utente chiede informazioni su eventi sportivi, politici o sociali che devono ancora avvenire o le cui qualificazioni sono in corso (es. Mondiali 2026), e NON c'è ancora un verdetto storico ufficiale e definitivo, NON devi assolutamente fare previsioni. DEVI rispondere 'NON VERIFICABILE' e spiegare che l'evento è in corso o nel futuro.\n"
 
-            f"Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore: \n"
+            f"TOLLERANZA E INTENTO: Se l'utente fa piccoli errori su anni di edizioni PASSATE (es. AFCON 2026 invece di 2025), ma l'evento principale è realmente accaduto, rispondi VERO e correggi amichevolmente l'imprecisione dell'utente nella spiegazione.\n"
+
+            f"FORMATO OBBLIGATORIO: Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore tra il verdetto e la spiegazione. Scegli UNA sola delle tre parole iniziali: \n"
             f"VERO | La tua spiegazione breve qui... \n"
             f"oppure \n"
             f"FALSO | La tua spiegazione breve qui... \n"
-            f"Non usare mai il grassetto (niente asterischi) per la parola VERO o FALSO. \n"
+            f"oppure \n"
+            f"NON VERIFICABILE | La tua spiegazione breve qui... \n"
+            f"Non usare mai il grassetto (niente asterischi) per le parole VERO, FALSO o NON VERIFICABILE. \n"
             f"Notizia da analizzare: {user_news}"
         )
+        # Chiamata al modello CON ACCESSO A INTERNET (Corretta)
         response = client.models.generate_content(
             model=model_id,
-            contents=prompt
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())]
+            )
         )
 
         testo_grezzo = response.text
