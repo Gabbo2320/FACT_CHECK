@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, View, Text } from 'react-native';
-import { onAuthStateChanged } from 'firebase/auth'; // Rimosso signOut perché ora si fa nel CustomDrawer
+import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'expo-router';
 
 // ⚠️ Assicurati che il percorso di Firebase sia corretto!
@@ -13,11 +13,13 @@ export default function HomeScreen() {
   const [spiegazione, setSpiegazione] = useState('');
   const [caricamento, setCaricamento] = useState(false);
 
+  // Il vero "lucchetto" istantaneo per evitare doppi tap e l'errore 429
+  const stoCaricando = useRef(false);
+
   // 👇 CONTROLLO SICUREZZA (Route Protection) 👇
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        // CORRETTO: Ora ti rimanda alla radice (il nuovo login)
         router.replace('/');
       }
     });
@@ -25,24 +27,24 @@ export default function HomeScreen() {
   }, []);
   // 👆 FINE CONTROLLO SICUREZZA 👆
 
-  // 👇 LA NUOVA FUNZIONE CON IL TOKEN 👇
+  // 👇 LA FUNZIONE CORRETTA E "ANTIPROIETTILE" 👇
   const inviaAlBackend = async () => {
-    if (!notizia) return;
+    // Se il campo è vuoto o se stiamo già caricando (lucchetto chiuso), blocca tutto!
+    if (!notizia || stoCaricando.current) return;
+
+    stoCaricando.current = true; // Chiudi il lucchetto all'istante
     setCaricamento(true);
     setVerdetto('');
     setSpiegazione('');
 
     try {
-      // 1. Recupero il token dell'utente loggato
       const token = await auth.currentUser?.getIdToken();
 
-      // 2. Prepara gli Header in modo ordinato (il "Braccialetto VIP")
       const requestHeaders = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       };
 
-      // 3. Eseguo la chiamata passando gli Header puliti
       const response = await fetch('https://kratos.vps.webdock.cloud/check-news', {
         method: 'POST',
         headers: requestHeaders,
@@ -50,30 +52,40 @@ export default function HomeScreen() {
       });
 
       const data = await response.json();
-      setVerdetto(data.verdetto);
-      setSpiegazione(data.spiegazione);
+
+      // 🛡️ IL SALVAVITA: Controlliamo se il server ci ha mandato un errore
+      if (data.status === 'error') {
+        setVerdetto('ERRORE DI SISTEMA');
+        setSpiegazione(data.message); // Usiamo 'message' perché il server ci manda questo!
+      } else {
+        setVerdetto(data.verdetto);
+        setSpiegazione(data.spiegazione);
+      }
 
     } catch (error) {
-      setSpiegazione("Errore: il backend non risponde. Controlla che Flask sia attivo e sulla stessa rete!");
+      setVerdetto('ERRORE DI CONNESSIONE');
+      setSpiegazione("Il server non risponde. Controlla la connessione a internet o se il backend è attivo.");
       console.error(error);
     } finally {
+      stoCaricando.current = false; // Riapri il lucchetto
       setCaricamento(false);
     }
   };
-  // 👆 FINE NUOVA FUNZIONE 👆
+  // 👆 FINE FUNZIONE 👆
 
-  // Colore forte per il testo e il bordo
+  // 👇 FIX PER EVITARE I CRASH DEI COLORI 👇
   const getColoreVerdetto = () => {
-    if (verdetto.includes('VERO')) return '#4CAF50';
-    if (verdetto.includes('FALSO')) return '#d32f2f';
-    return '#FF9800';
+    const v = verdetto || ''; // Protezione: se è vuoto, usa una stringa vuota
+    if (v.includes('VERO')) return '#4CAF50';
+    if (v.includes('FALSO')) return '#d32f2f';
+    return '#FF9800'; // Arancione per ERRORI o INCERTO
   };
 
-  // Colore di sfondo super chiaro per il box
   const getColoreSfondoAlert = () => {
-    if (verdetto.includes('VERO')) return '#edf7ed';
-    if (verdetto.includes('FALSO')) return '#fdeded';
-    return '#fff4e5';
+    const v = verdetto || ''; // Protezione: se è vuoto, usa una stringa vuota
+    if (v.includes('VERO')) return '#edf7ed';
+    if (v.includes('FALSO')) return '#fdeded';
+    return '#fff4e5'; // Giallo tenue per ERRORI o INCERTO
   };
 
   return (
@@ -115,10 +127,10 @@ export default function HomeScreen() {
             }
           ]}>
 
-            {/* INTESTAZIONE ALERT */}
+            {/* INTESTAZIONE ALERT CORRETTA */}
             <View style={styles.alertHeader}>
               <Text style={styles.alertEmoji}>
-                {verdetto.includes('VERO') ? '✅' : verdetto.includes('FALSO') ? '❌' : '⚠️'}
+                {(verdetto || '').includes('VERO') ? '✅' : (verdetto || '').includes('FALSO') ? '❌' : '⚠️'}
               </Text>
               <Text style={[styles.alertTitle, { color: getColoreVerdetto() }]}>
                 {verdetto}
@@ -145,7 +157,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 20,
-    paddingTop: 20, // Abbassato da 50 a 20 perché ora c'è la barra del menù sopra
+    paddingTop: 20,
     backgroundColor: '#ffffff',
   },
   input: {
