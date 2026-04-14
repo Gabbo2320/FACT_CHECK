@@ -1,24 +1,22 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme as RNuseColorScheme } from 'react-native';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 
-const ThemeContext = createContext({
-  theme: 'system',
-  isDark: false,
-  setTheme: (theme: string) => {},
-});
+const ThemeContext = createContext<any>(null);
 
-export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState('system');
-  const systemTheme = RNuseColorScheme();
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const systemTheme = useColorScheme(); // 'light' o 'dark' dal telefono
+  const [theme, setTheme] = useState('system'); // 'system', 'light', o 'dark'
 
-  // Determina se il tema finale è scuro
-  const isDark = (theme === 'system' ? systemTheme : theme) === 'dark';
+  // Calcola se deve essere scuro in base alla scelta dell'utente o al sistema
+  const isDark = theme === 'system' ? systemTheme === 'dark' : theme === 'dark';
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, isDark }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
 
-export const useTheme = () => useContext(ThemeContext);
+export function useTheme() {
+  return useContext(ThemeContext);
+}

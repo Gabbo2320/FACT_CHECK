@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'expo-router';
 import { auth } from '../firebaseConfig';
+
+// 🎨 1. IMPORTIAMO IL CONTEXT GLOBALE
+import { useTheme } from './ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -13,13 +16,10 @@ export default function CustomDrawer(props: any) {
   const router = useRouter();
   const user = auth.currentUser;
 
-  // --- LOGICA TEMA ---
-  const systemTheme = useColorScheme();
-  const [userTheme, setUserTheme] = useState('system');
+  // --- LOGICA TEMA (ORA È COLLEGATA AL RESTO DELL'APP) ---
+  // 🎨 2. USIAMO LE VARIABILI GLOBALI INVECE DI QUELLE LOCALI
+  const { isDark, theme, setTheme } = useTheme();
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
-
-  const activeTheme = userTheme === 'system' ? systemTheme : userTheme;
-  const isDark = activeTheme === 'dark';
 
   const colors = {
     bg: isDark ? '#121212' : '#ffffff',
@@ -45,7 +45,11 @@ export default function CustomDrawer(props: any) {
   };
 
   return (
-    <DrawerContentScrollView {...props} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+    <DrawerContentScrollView
+      {...props}
+      style={{ backgroundColor: colors.bg }} /* 👈 ECCO LA MODIFICA CHIAVE */
+      contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}
+    >
 
       {/* 🔝 INTESTAZIONE */}
       <View style={[styles.header, { borderBottomColor: colors.borderColor }]}>
@@ -59,7 +63,7 @@ export default function CustomDrawer(props: any) {
       {/* 👤 FOOTER: Tema + Profilo + Logout */}
       <View style={[styles.footer, { borderTopColor: colors.borderColor }]}>
 
-        {/* 🎨 NUOVA SEZIONE TEMA STILE GOOGLE */}
+        {/* 🎨 SEZIONE TEMA STILE GOOGLE */}
         <View style={styles.themeContainer}>
           <TouchableOpacity
             style={[styles.menuItem, isThemeMenuOpen && { backgroundColor: colors.hover }]}
@@ -84,17 +88,17 @@ export default function CustomDrawer(props: any) {
                 <TouchableOpacity
                   key={opt.id}
                   style={styles.subMenuItem}
-                  onPress={() => { setUserTheme(opt.id); setIsThemeMenuOpen(false); }}
+                  onPress={() => { setTheme(opt.id); setIsThemeMenuOpen(false); }} // 🎨 3. AGGIORNA IL TEMA GLOBALE
                 >
                   <Text style={[styles.subMenuText, { color: colors.textColor }]}>{opt.icon} {opt.label}</Text>
-                  {userTheme === opt.id && <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>✓</Text>}
+                  {theme === opt.id && <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>✓</Text>}
                 </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
 
-        {/* 👤 PROFILO UTENTE (Ripristinato) */}
+        {/* 👤 PROFILO UTENTE */}
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
@@ -106,7 +110,7 @@ export default function CustomDrawer(props: any) {
           </View>
         </View>
 
-        {/* 🚪 LOGOUT (Ripristinato) */}
+        {/* 🚪 LOGOUT */}
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={() => signOut(auth).then(() => router.replace('/'))}
