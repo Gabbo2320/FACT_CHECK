@@ -29,7 +29,7 @@ try:
 except Exception as e:
     print(f"Errore Firebase: {e}")
 
-@app.route('/check-news', methods=['POST'])
+@app.route('/api/check-news', methods=['POST'])
 def check_news():
     # ==========================================
     # 🛑 INIZIO BUTTAFUORI (CONTROLLO JWT)

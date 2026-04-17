@@ -76,7 +76,7 @@ export default function HomeScreen() {
         'Authorization': `Bearer ${token}`
       };
 
-      const response = await fetch('https://kratos.vps.webdock.cloud/check-news', {
+      const response = await fetch('https://kratos.vps.webdock.cloud/api/check-news', {
         method: 'POST',
         headers: requestHeaders,
         body: JSON.stringify({ news: notizia }),
