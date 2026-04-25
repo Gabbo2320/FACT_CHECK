@@ -40,7 +40,7 @@ yarn-error.*
 /ios
 /android
 
-frontend/firebaseConfig.ts
+firebaseConfig.ts
 .env
 .env.local
 *.env
