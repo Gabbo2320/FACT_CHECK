@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, View, Text } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, View, Text, Keyboard } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router';
 
 import { auth } from '../../firebaseConfig';
 import { useTheme } from '../../components/ThemeContext';
@@ -9,36 +9,54 @@ import { useTheme } from '../../components/ThemeContext';
 export default function HomeScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const params = useLocalSearchParams();
+
+  // 🕒 LOGICA DI RECUPERO DALLA CRONOLOGIA CORRETTA
+  useEffect(() => {
+    if (params.prevNews && params.prevAnalysis) {
+      setNotizia(params.prevNews as string);
+
+      const analisiCompleta = params.prevAnalysis as string;
+
+      if (analisiCompleta.includes(' - ')) {
+        const [v, ...rest] = analisiCompleta.split(' - ');
+        setVerdetto(v.trim());
+        setSpiegazione(rest.join(' - ').trim());
+      } else {
+        setVerdetto('ANALISI');
+        setSpiegazione(analisiCompleta);
+      }
+      router.setParams({ prevNews: undefined, prevAnalysis: undefined });
+    }
+  }, [params.prevNews, params.prevAnalysis]);
+
   const [notizia, setNotizia] = useState('');
   const [verdetto, setVerdetto] = useState('');
   const [spiegazione, setSpiegazione] = useState('');
+
+  // STATO PER DISABILITARE LA UI
   const [caricamento, setCaricamento] = useState(false);
+
+  // RIFERIMENTO IMMEDIATO PER BLOCCARE LO SPAM DI CLICK
+  const stoCaricando = useRef(false);
 
   const { isDark } = useTheme();
 
-  // 🎨 PALETTE COLORI LIVELLO "PRO"
+  // 🎨 PALETTE COLORI
   const colors = {
-    // Sfondo principale: quasi nero in Dark, grigio chiarissimo/pulito in Light
     bg: isDark ? '#121212' : '#f4f4f5',
-    // Campo di testo: leggermente più chiaro in Dark, bianco puro in Light per far risaltare l'area di scrittura
     inputBg: isDark ? '#1e1e1e' : '#ffffff',
     inputBorder: isDark ? '#333333' : '#e4e4e7',
     text: isDark ? '#ffffff' : '#18181b',
     placeholder: isDark ? '#888888' : '#a1a1aa',
-
-    // 👇 Il tocco "Brand": un blu acceso (trust/tech) per il bottone principale, visibile su entrambi i temi
     buttonBg: isDark ? '#2563eb' : '#007AFF',
     buttonText: '#ffffff',
-
     alertText: isDark ? '#e0e0e0' : '#222222',
     alertFooter: isDark ? '#aaaaaa' : '#777777',
     alertBorder: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-
-    headerBg: isDark ? '#121212' : '#ffffff', // Allineato al bg
+    headerBg: isDark ? '#121212' : '#ffffff',
     headerText: isDark ? '#ffffff' : '#000000',
   };
-
-  const stoCaricando = useRef(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -61,10 +79,18 @@ export default function HomeScreen() {
   }, []);
 
   const inviaAlBackend = async () => {
+    // 1. BLOCCO IMMEDIATO: Se il campo è vuoto o stiamo già caricando, interrompi subito
     if (!notizia || stoCaricando.current) return;
 
+    // 2. CHIUDI LA TASTIERA: Previene tocchi accidentali dovuti allo spostamento dell'interfaccia
+    Keyboard.dismiss();
+
+    // 3. ATTIVA I BLOCCHI: Blocchiamo sia la logica (Ref) che la grafica (State)
     stoCaricando.current = true;
     setCaricamento(true);
+
+    // Resetta navigazione e stati precedenti
+    router.setParams({ prevNews: undefined, prevAnalysis: undefined });
     setVerdetto('');
     setSpiegazione('');
 
@@ -97,6 +123,7 @@ export default function HomeScreen() {
       setSpiegazione("Il server non risponde. Controlla la connessione a internet o se il backend è attivo.");
       console.error(error);
     } finally {
+      // 4. SBLOCCO FINALE: Riattiviamo il bottone solo a operazione totalmente conclusa
       stoCaricando.current = false;
       setCaricamento(false);
     }
@@ -118,8 +145,6 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-
-      {/* 👇 AGGIUNTO WRAPPER CENTRALE: limita la larghezza su PC stile ChatGPT 👇 */}
       <View style={styles.contentWrapper}>
         <TextInput
           style={[
@@ -138,7 +163,8 @@ export default function HomeScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.buttonBg }]}
+          // La disabilitazione grafica è gestita da "caricamento"
+          style={[styles.button, { backgroundColor: caricamento ? colors.placeholder : colors.buttonBg }]}
           onPress={inviaAlBackend}
           disabled={caricamento}
         >
@@ -149,7 +175,6 @@ export default function HomeScreen() {
           )}
         </TouchableOpacity>
 
-        {/* --- SEZIONE RISULTATO --- */}
         {spiegazione ? (
           <ScrollView
             style={styles.resultContainer}
@@ -191,25 +216,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    paddingTop: 40, // Un po' più di respiro in alto
+    paddingTop: 40,
   },
-  // 👇 IL SEGRETO PER IL LAYOUT DESKTOP PERFETTO 👇
   contentWrapper: {
     width: '100%',
-    maxWidth: 800, // Non si allargherà mai oltre gli 800px
-    alignSelf: 'center', // Rimane perfettamente al centro
+    maxWidth: 800,
+    alignSelf: 'center',
     flex: 1,
   },
   input: {
     width: '100%',
-    height: 140, // Leggermente più alto per incollare testi lunghi
+    height: 140,
     borderWidth: 1,
-    borderRadius: 12, // Angoli leggermente più morbidi
+    borderRadius: 12,
     padding: 18,
     textAlignVertical: 'top',
     fontSize: 16,
     marginBottom: 20,
-    // Ombreggiatura leggerissima per dare tridimensionalità
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -221,7 +244,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
-    // Ombra al bottone per farlo sembrare cliccabile
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -231,7 +253,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: 'bold',
     fontSize: 18,
-    letterSpacing: 0.5, // Leggermente spaziato per eleganza
+    letterSpacing: 0.5,
   },
   resultContainer: {
     flex: 1,
@@ -244,7 +266,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderLeftWidth: 8,
     marginBottom: 10,
-    // Ombra anche ai risultati
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -262,13 +283,13 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 20,
-    fontWeight: '800', // Più marcato
+    fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   alertText: {
     fontSize: 16,
-    lineHeight: 26, // Più interlinea per leggibilità
+    lineHeight: 26,
   },
   alertFooter: {
     marginTop: 20,

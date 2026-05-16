@@ -5,11 +5,11 @@
     "sdkVersion": "54.0.0",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo-nuovo.png",
+    "icon": "./assets/logo.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/logo-nuovo.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -19,14 +19,14 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1E293B",
-        "foregroundImage": "./assets/images/logo-nuovo.png"
+        "foregroundImage": "./assets/logo.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/logo-nuovo.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       "expo-router",

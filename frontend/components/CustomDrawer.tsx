@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager, ScrollView, ActivityIndicator } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'expo-router';
 import { auth } from '../firebaseConfig';
 
-// 🎨 1. IMPORTIAMO IL CONTEXT GLOBALE
+// 🎨 IMPORT DEL CONTEXT GLOBALE
 import { useTheme } from './ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -16,10 +16,13 @@ export default function CustomDrawer(props: any) {
   const router = useRouter();
   const user = auth.currentUser;
 
-  // --- LOGICA TEMA (ORA È COLLEGATA AL RESTO DELL'APP) ---
-  // 🎨 2. USIAMO LE VARIABILI GLOBALI INVECE DI QUELLE LOCALI
+  // 🎨 LOGICA TEMA GLOBALE
   const { isDark, theme, setTheme } = useTheme();
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+
+  // 🕒 STATI PER LA CRONOLOGIA
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const colors = {
     bg: isDark ? '#121212' : '#ffffff',
@@ -31,6 +34,41 @@ export default function CustomDrawer(props: any) {
   };
 
   const displayName = user?.displayName || user?.email || 'Utente Sconosciuto';
+
+  // 🚀 RECUPERO CRONOLOGIA DAL BACKEND
+  const fetchHistory = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const token = await user.getIdToken();
+
+      // ✅ Chiamata diretta al backend sicuro sul tuo VPS
+      const response = await fetch('https://kratos.vps.webdock.cloud/api/get-history', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setHistory(data.history);
+      }
+    } catch (error) {
+      console.error("Errore nel recupero cronologia:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.uid) {
+      fetchHistory();
+    }
+  }, [user?.uid]);
 
   const toggleThemeMenu = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -47,7 +85,7 @@ export default function CustomDrawer(props: any) {
   return (
     <DrawerContentScrollView
       {...props}
-      style={{ backgroundColor: colors.bg }} /* 👈 ECCO LA MODIFICA CHIAVE */
+      style={{ backgroundColor: colors.bg }}
       contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}
     >
 
@@ -57,13 +95,64 @@ export default function CustomDrawer(props: any) {
         <Text style={[styles.headerSubtitle, { color: colors.subTextColor }]}>Il tuo assistente antibufale</Text>
       </View>
 
-      {/* SPAZIO CENTRALE VUOTO */}
-      <View style={{ flex: 1 }} />
+      {/* 🕒 SEZIONE CRONOLOGIA */}
+      <View style={styles.historySection}>
+        <View style={styles.historyHeader}>
+          <Text style={[styles.historyTitle, { color: colors.subTextColor }]}>ANALISI RECENTI</Text>
+          <TouchableOpacity onPress={fetchHistory}>
+            <Text style={{ fontSize: 12, color: '#007AFF', fontWeight: '600' }}>Aggiorna</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* 👤 FOOTER: Tema + Profilo + Logout */}
+        {loading ? (
+          <ActivityIndicator size="small" color="#007AFF" style={{ marginTop: 20 }} />
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+            {history.length > 0 ? (
+              history.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.historyItem, { borderBottomColor: colors.borderColor }]}
+                  onPress={() => {
+                    // Scomponiamo la stringa 'analisi' (VERDETTO - Spiegazione) per passarla alla Home
+                    let verdettoInviato = "INCERTO";
+                    let spiegazioneInviata = item.analisi;
+
+                    if (item.analisi && item.analisi.includes(' - ')) {
+                      const parti = item.analisi.split(' - ');
+                      verdettoInviato = parti[0].trim();
+                      spiegazioneInviata = parti[1].trim();
+                    }
+
+                    router.push({
+                      pathname: '/home',
+                      params: {
+                        prevNews: item.testo,
+                        prevVerdict: verdettoInviato,
+                        prevExplanation: spiegazioneInviata
+                      }
+                    });
+
+                    props.navigation.closeDrawer();
+                  }}
+                >
+                  <Text numberOfLines={1} style={[styles.historyText, { color: colors.textColor }]}>
+                    {item.testo}
+                  </Text>
+                  <Text style={styles.historyDate}>{item.data}</Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={[styles.emptyText, { color: colors.subTextColor }]}>Nessuna analisi effettuata.</Text>
+            )}
+          </ScrollView>
+        )}
+      </View>
+
+      {/* 👤 FOOTER */}
       <View style={[styles.footer, { borderTopColor: colors.borderColor }]}>
 
-        {/* 🎨 SEZIONE TEMA STILE GOOGLE */}
+        {/* 🎨 TEMA */}
         <View style={styles.themeContainer}>
           <TouchableOpacity
             style={[styles.menuItem, isThemeMenuOpen && { backgroundColor: colors.hover }]}
@@ -88,7 +177,7 @@ export default function CustomDrawer(props: any) {
                 <TouchableOpacity
                   key={opt.id}
                   style={styles.subMenuItem}
-                  onPress={() => { setTheme(opt.id); setIsThemeMenuOpen(false); }} // 🎨 3. AGGIORNA IL TEMA GLOBALE
+                  onPress={() => { setTheme(opt.id); setIsThemeMenuOpen(false); }}
                 >
                   <Text style={[styles.subMenuText, { color: colors.textColor }]}>{opt.icon} {opt.label}</Text>
                   {theme === opt.id && <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>✓</Text>}
@@ -98,7 +187,7 @@ export default function CustomDrawer(props: any) {
           )}
         </View>
 
-        {/* 👤 PROFILO UTENTE */}
+        {/* 👤 PROFILO */}
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
@@ -129,9 +218,16 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: '900' },
   headerSubtitle: { fontSize: 13, marginTop: 4 },
 
+  historySection: { flex: 1, paddingHorizontal: 20, marginTop: 20, minHeight: 200 },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  historyTitle: { fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  historyItem: { paddingVertical: 12, borderBottomWidth: 1 },
+  historyText: { fontSize: 14, fontWeight: '500' },
+  historyDate: { fontSize: 11, color: '#999', marginTop: 4 },
+  emptyText: { fontSize: 13, fontStyle: 'italic', marginTop: 10, textAlign: 'center' },
+
   footer: { padding: 20, borderTopWidth: 1 },
 
-  // Stili Tema Google
   themeContainer: { marginBottom: 15 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 8 },
   menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -140,7 +236,6 @@ const styles = StyleSheet.create({
   subMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 15 },
   subMenuText: { fontSize: 14 },
 
-  // Stili Profilo
   profileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 10 },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#007AFF', justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },

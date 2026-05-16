@@ -10,7 +10,27 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 app = Flask(__name__)
-CORS(app)
+
+# 🔒 CORS CONFIGURATO CORRETTAMENTE
+# Accettiamo le richieste esterne MA diciamo esplicitamente a Flask di lasciar passare il token di sicurezza
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# ☢️ SOLUZIONE NUCLEARE PER IL PREFLIGHT (OPTIONS)
+# Intercetta tutte le richieste OPTIONS prima che falliscano e risponde positivamente al browser
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return response
 
 # --- CONFIGURAZIONI ---
 load_dotenv()
@@ -88,6 +108,8 @@ def check_news():
             )
         )
 
+        print("Prompt inviato a Gemini")
+
         testo_grezzo = response.text
 
         # TRUCCO: Dividiamo la risposta dove trova il simbolo '|'
@@ -101,12 +123,16 @@ def check_news():
 
         # Salvataggio Firebase
         try:
+            # Salvataggio Firebase ottimizzato
             db.collection('analisi_effettuate').add({
                 'testo': user_news,
-                'analisi': f"{verdetto} - {spiegazione}",
+                'verdetto': verdetto,  # Campo separato per icone colorate
+                'spiegazione': spiegazione,
+                'analisi': f"{verdetto} - {spiegazione}",  # Mantieni questo per compatibilità
                 'data': datetime.now(),
-                'utente_uid': decoded_token['uid'] # 👇 NOVITÀ: Salviamo anche chi ha fatto la ricerca!
+                'utente_uid': decoded_token['uid']
             })
+
         except Exception as fe:
             print(f"Errore Database: {fe}")
 
@@ -121,6 +147,39 @@ def check_news():
         print(f"Errore: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+@app.route('/api/get-history', methods=['GET'])
+def get_history():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"status": "error", "message": "No token"}), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        decoded_token = auth.verify_id_token(token)
+        uid = decoded_token['uid']
+
+        # 🚀 Sfrutta l'indice composto che hai creato su Firebase
+        docs = db.collection('analisi_effettuate') \
+            .where('utente_uid', '==', uid) \
+            .order_by('data', direction=firestore.Query.DESCENDING) \
+            .limit(10).get()
+
+        history = []
+        for doc in docs:
+            d = doc.to_dict()
+            history.append({
+                "id": doc.id,
+                "testo": d.get('testo', 'Nessun testo'),
+                "analisi": d.get('analisi', ''),
+                "data": d.get('data').strftime("%d/%m %H:%M") if d.get('data') else ""
+            })
+
+        return jsonify({"status": "success", "history": history})
+    except Exception as e:
+        print(f"ERRORE CRITICO: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == '__main__':
     # host='0.0.0.0' per la connessione del Pixel
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)
