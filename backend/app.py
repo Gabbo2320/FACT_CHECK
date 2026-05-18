@@ -21,17 +21,6 @@ CORS(app, resources={
     }
 })
 
-# ☢️ SOLUZIONE NUCLEARE PER IL PREFLIGHT (OPTIONS)
-# Intercetta tutte le richieste OPTIONS prima che falliscano e risponde positivamente al browser
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        return response
-
 # --- CONFIGURAZIONI ---
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
@@ -48,6 +37,7 @@ try:
     db = firestore.client()
 except Exception as e:
     print(f"Errore Firebase: {e}")
+
 
 @app.route('/api/check-news', methods=['POST'])
 def check_news():
@@ -115,8 +105,8 @@ def check_news():
         # TRUCCO: Dividiamo la risposta dove trova il simbolo '|'
         if "|" in testo_grezzo:
             parti = testo_grezzo.split("|", 1)
-            verdetto = parti[0].strip().upper() # Prende "VERO" o "FALSO" e lo mette in maiuscolo
-            spiegazione = parti[1].strip()      # Prende il resto del testo
+            verdetto = parti[0].strip().upper()  # Prende "VERO" o "FALSO" e lo mette in maiuscolo
+            spiegazione = parti[1].strip()  # Prende il resto del testo
         else:
             verdetto = "INCERTO"
             spiegazione = testo_grezzo
@@ -159,7 +149,6 @@ def get_history():
         decoded_token = auth.verify_id_token(token)
         uid = decoded_token['uid']
 
-        # 🚀 Sfrutta l'indice composto che hai creato su Firebase
         docs = db.collection('analisi_effettuate') \
             .where('utente_uid', '==', uid) \
             .order_by('data', direction=firestore.Query.DESCENDING) \
@@ -168,9 +157,23 @@ def get_history():
         history = []
         for doc in docs:
             d = doc.to_dict()
+
+            # Recuperiamo i nuovi campi separati
+            verdetto = d.get('verdetto')
+            spiegazione = d.get('spiegazione')
+
+            # 💡 SALVAGENTE: Se è una notizia vecchia che non aveva i campi separati,
+            # separiamo la vecchia stringa 'analisi' usando il trattino '-'
+            if (not verdetto or not spiegazione) and "-" in d.get('analisi', ''):
+                parti = d.get('analisi').split("-", 1)
+                verdetto = parti[0].strip()
+                spiegazione = parti[1].strip()
+
             history.append({
                 "id": doc.id,
                 "testo": d.get('testo', 'Nessun testo'),
+                "verdetto": verdetto or "INCERTO",  # <--- Ora passiamo il verdetto alla Home!
+                "spiegazione": spiegazione or d.get('analisi', ''),  # <--- E la spiegazione!
                 "analisi": d.get('analisi', ''),
                 "data": d.get('data').strftime("%d/%m %H:%M") if d.get('data') else ""
             })
@@ -179,6 +182,7 @@ def get_history():
     except Exception as e:
         print(f"ERRORE CRITICO: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     # host='0.0.0.0' per la connessione del Pixel

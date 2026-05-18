@@ -44,7 +44,6 @@ export default function CustomDrawer(props: any) {
     try {
       const token = await user.getIdToken();
 
-      // ✅ Chiamata diretta al backend sicuro sul tuo VPS
       const response = await fetch('https://kratos.vps.webdock.cloud/api/get-history', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -114,15 +113,9 @@ export default function CustomDrawer(props: any) {
                   key={item.id}
                   style={[styles.historyItem, { borderBottomColor: colors.borderColor }]}
                   onPress={() => {
-                    // Scomponiamo la stringa 'analisi' (VERDETTO - Spiegazione) per passarla alla Home
-                    let verdettoInviato = "INCERTO";
-                    let spiegazioneInviata = item.analisi;
-
-                    if (item.analisi && item.analisi.includes(' - ')) {
-                      const parti = item.analisi.split(' - ');
-                      verdettoInviato = parti[0].trim();
-                      spiegazioneInviata = parti[1].trim();
-                    }
+                    // 💡 Leggiamo direttamente i dati puliti inviati dal nuovo backend
+                    const verdettoInviato = item.verdetto || "INCERTO";
+                    const spiegazioneInviata = item.spiegazione || item.analisi || "";
 
                     router.push({
                       pathname: '/home',

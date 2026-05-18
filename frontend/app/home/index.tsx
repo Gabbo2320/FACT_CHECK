@@ -11,24 +11,19 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const params = useLocalSearchParams();
 
-  // 🕒 LOGICA DI RECUPERO DALLA CRONOLOGIA CORRETTA
+  // 🕒 LOGICA DI RECUPERO DALLA CRONOLOGIA CORRETTA (AGGIORNATA)
   useEffect(() => {
-    if (params.prevNews && params.prevAnalysis) {
+    if (params.prevNews && (params.prevVerdict || params.prevExplanation)) {
+
+      // I dati arrivano già separati dalla sidebar, li impostiamo direttamente!
       setNotizia(params.prevNews as string);
+      setVerdetto(params.prevVerdict as string);
+      setSpiegazione(params.prevExplanation as string);
 
-      const analisiCompleta = params.prevAnalysis as string;
-
-      if (analisiCompleta.includes(' - ')) {
-        const [v, ...rest] = analisiCompleta.split(' - ');
-        setVerdetto(v.trim());
-        setSpiegazione(rest.join(' - ').trim());
-      } else {
-        setVerdetto('ANALISI');
-        setSpiegazione(analisiCompleta);
-      }
-      router.setParams({ prevNews: undefined, prevAnalysis: undefined });
+      // Puliamo i parametri per evitare loop
+      router.setParams({ prevNews: undefined, prevVerdict: undefined, prevExplanation: undefined });
     }
-  }, [params.prevNews, params.prevAnalysis]);
+  }, [params.prevNews, params.prevVerdict, params.prevExplanation]);
 
   const [notizia, setNotizia] = useState('');
   const [verdetto, setVerdetto] = useState('');
