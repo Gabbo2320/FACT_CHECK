@@ -1,5 +1,7 @@
 from datetime import datetime
 import os
+import json  # 🔍 NUOVO: Gestione dati JSON per Serper
+import requests  # 🔍 NUOVO: Libreria per fare la richiesta HTTP a Serper
 from google import genai
 from google.genai import types
 import firebase_admin
@@ -24,6 +26,7 @@ CORS(app, resources={
 # --- CONFIGURAZIONI ---
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
+serper_key = os.getenv("SERPER_API_KEY")  # 🔍 Legge la chiave Serper dal file .env
 
 # Manteniamo il TUO modello specifico
 client = genai.Client(api_key=api_key)
@@ -71,35 +74,68 @@ def check_news():
 
         oggi = datetime.now().strftime("%d/%m/%Y")
 
-        # Nuovo prompt con regole ANTI-ALLUCINAZIONE e Fact-Checking severo
+        # ==========================================
+        # 🔍 NUOVO: RICERCA IN TEMPO REALE CON SERPER (GOOGLE SEARCH)
+        # ==========================================
+        contesto_web = ""
+        try:
+            print(f"🌐 Eseguo ricerca reale su Google (via Serper) per: {user_news}")
+
+            url = "https://google.serper.dev/search"
+            payload = json.dumps({
+                "q": user_news,
+                "gl": "it",  # Forza la ricerca geografica in Italia
+                "hl": "it"  # Richiede i risultati in lingua italiana
+            })
+            headers = {
+                'X-API-KEY': serper_key or "INCOLLA_QUI_LA_TUA_CHIAVE_SERPER_SE_NON_USI_ENV",
+                'Content-Type': 'application/json'
+            }
+
+            risposta_serper = requests.post(url, headers=headers, data=payload, timeout=5)
+            dati_serper = risposta_serper.json()
+
+            # Estraiamo i riassunti (snippet) dei primi 4 risultati di Google
+            if 'organic' in dati_serper:
+                risultati = [f"- {item.get('title')}: {item.get('snippet')}" for item in dati_serper['organic'][:4]]
+                contesto_web = "\n".join(risultati)
+                print("🌐 Dati da Google Search recuperati con successo!")
+            else:
+                contesto_web = "Nessun risultato d'attualità trovato sul web per questa ricerca."
+
+        except Exception as se:
+            print(f"⚠️ Errore durante la ricerca Serper: {se}")
+            contesto_web = "Impossibile recuperare dati in tempo reale (servizio momentaneamente non raggiungibile)."
+
+        # ==========================================
+        # 📝 PROMPT AGGIORNATO CON IL CONTESTO WEB REALE
+        # ==========================================
         prompt = (
             f"RUOLO: Sei un giornalista di fact-checking severissimo e incorruttibile. La tua priorità assoluta è la verità. NON inventare MAI i fatti per accontentare l'utente.\n"
-            f"CONTESTO TEMPORALE: Oggi è il {oggi}. Tieni a mente questa data, ma NON scriverla MAI nella spiegazione finale.\n"
-
-            f"REGOLA EVENTI FUTURI/IN CORSO (ANTI-ALLUCINAZIONE): Se l'utente chiede informazioni su eventi sportivi, politici o sociali che devono ancora avvenire o le cui qualificazioni sono in corso (es. Mondiali 2026), e NON c'è ancora un verdetto storico ufficiale e definitivo, NON devi assolutamente fare previsioni. DEVI rispondere 'NON VERIFICABILE' e spiegare che l'evento è in corso o nel futuro.\n"
-
+            f"CONTESTO TEMPORALE: Oggi è il {oggi}. Tieni a mente questa data, ma NON scriverla MAI nella spiegazione finale.\n\n"
+            f"DATI RECENTI RECUPERATI DA GOOGLE SEARCH (Usa queste informazioni reali come fonte primaria per verificare la notizia):\n"
+            f"{contesto_web}\n\n"
+            f"REGOLA EVENTI FUTURI/IN CORSO (ANTI-ALLUCINAZIONE): Se l'utente chiede informazioni su eventi sportivi, politici o sociali che devono ancora avvenire o le cui qualificazioni sono in corso (es. Mondiali 2026), e NON c'è ancora un verdetto storico ufficiale e definitivo nei dati di Google Search sopra riportati, NON devi assolutamente fare previsioni. DEVI rispondere 'NON VERIFICABILE' e spiegare che l'evento è in corso o nel futuro.\n"
             f"TOLLERANZA E INTENTO: Se l'utente fa piccoli errori su anni di edizioni PASSATE (es. AFCON 2026 invece di 2025), ma l'evento principale è realmente accaduto, rispondi VERO e correggi amichevolmente l'imprecisione dell'utente nella spiegazione.\n"
-
             f"FORMATO OBBLIGATORIO: Devi rispondere ESATTAMENTE in questo formato, usando il carattere '|' come divisore tra il verdetto e la spiegazione. Scegli UNA sola delle tre parole iniziali: \n"
             f"VERO | La tua spiegazione breve qui... \n"
             f"oppure \n"
             f"FALSO | La tua spiegazione breve qui... \n"
             f"oppure \n"
             f"NON VERIFICABILE | La tua spiegazione breve qui... \n"
-            f"Non usare mai il grassetto (niente asterischi) per le parole VERO, FALSO o NON VERIFICABILE. \n"
+            f"Non usare mai il grassetto (niente asterischi) per le parole VERO, FALSO o NON VERIFICABILE. \n\n"
             f"Notizia da analizzare: {user_news}"
         )
-        # Chiamata al modello CON ACCESSO A INTERNET (Corretta)
+
+        print("Inviando prompt strutturato a Gemini...")
+
+        # Chiamata pulita senza 'config' nativo: evitiamo definitivamente il blocco 429
         response = client.models.generate_content(
             model=model_id,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())]
-            )
+            contents=prompt
         )
 
-        print("Prompt inviato a Gemini")
-
+        print("Risposta ricevuta da Gemini")
         testo_grezzo = response.text
 
         # TRUCCO: Dividiamo la risposta dove trova il simbolo '|'
@@ -113,7 +149,6 @@ def check_news():
 
         # Salvataggio Firebase
         try:
-            # Salvataggio Firebase ottimizzato
             db.collection('analisi_effettuate').add({
                 'testo': user_news,
                 'verdetto': verdetto,  # Campo separato per icone colorate
@@ -122,7 +157,7 @@ def check_news():
                 'data': datetime.now(),
                 'utente_uid': decoded_token['uid']
             })
-
+            print("✅ Analisi salvata su Firestore")
         except Exception as fe:
             print(f"Errore Database: {fe}")
 
@@ -134,7 +169,7 @@ def check_news():
         })
 
     except Exception as e:
-        print(f"Errore: {e}")
+        print(f"Errore Generale: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
